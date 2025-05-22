@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title> Al-Amin Card Generator</title>
+  <link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+  <header>
+    <div class="cara-desing-name">
+
+      <img src="image/card.png" class="logo">
+      <h2> Card Generator</h2>
+
+    </div>
+    <p class="cara-desing-name-1"> Al-Amin Web designer </p>
+  </header>
+
+  <div class="container">
+    <!-- Input Section -->
+    <div class="section">
+      <label>BIN:</label>
+      <input type="text" id="bin" placeholder="Enter first 6-8 digits">
+
+      <label>Month / Year:</label>
+      <div class="row">
+        <div class="half">
+          <select id="month">
+            <option value="">Random</option>
+            <script>
+              for (let m = 1; m <= 12; m++) {
+                document.write(`<option value="${String(m).padStart(2, '0')}">${String(m).padStart(2, '0')}</option>`);
+              }
+            </script>
+          </select>
+        </div>
+        <div class="half">
+          <select id="year">
+            <option value="">Random</option>
+            <script>
+              for (let y = 2024; y <= 2033; y++) {
+                document.write(`<option value="${String(y).slice(-2)}">${y}</option>`);
+              }
+            </script>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="half">
+          <label>CVV2:</label>
+          <input type="text" id="cvv" placeholder="Manual or Random">
+        </div>
+        <div class="half">
+          <label>Quantity:</label>
+          <input type="number" id="quantity" placeholder="Default: 10" min="1" max="100">
+        </div>
+      </div>
+
+      <button onclick="generateCards()">Generate Cards</button>
+    </div>
+
+    <!-- Result Section -->
+    <div class="section">
+      <h3 style="color: var(--text-light); margin-top: 0;">Generated Cards:</h3>
+      <textarea id="results" readonly></textarea>
+      <button class="copy-btn" onclick="copyResults()">Copy All</button>
+    </div>
+  </div>
+
+  <script>
+    function detectCardType(bin) {
+      if (!bin) return "unknown";
+      if (/^4/.test(bin)) return "Visa";
+      if (/^5[1-5]/.test(bin) || /^2(2[2-9]|[3-6]|7[01]|720)/.test(bin)) return "Mastercard";
+      if (/^3[47]/.test(bin)) return "American Express";
+      if (/^(5[06789]|6)/.test(bin)) return "Maestro";
+      if (/^35(2[89]|[3-8])/.test(bin)) return "JCB";
+      if (/^(30[0-5]|36|38|39)/.test(bin)) return "Diners Club";
+      if (/^(62|88)/.test(bin)) return "UnionPay";
+      if (/^9/.test(bin)) return "Discover";
+      return "unknown";
+    }
+
+    function getCardLength(type) {
+      switch (type.toLowerCase()) {
+        case "american express": return 15;
+        case "diners club": return 14;
+        default: return 16;
+      }
+    }
+
+    function validateBin(bin) {
+      const binInput = document.getElementById('bin');
+
+      // Reset styles
+      binInput.classList.remove('error-input');
+      binInput.placeholder = "Enter first 6-8 digits";
+
+      if (!bin) {
+        return false;
+      }
+
+      if (bin.length < 5) {
+        binInput.classList.add('error-input');
+        binInput.placeholder = "BIN must be at least 5 digits!";
+        return false;
+      }
+
+      if (bin.length > 16) {
+        binInput.classList.add('error-input');
+        binInput.placeholder = "BIN cannot exceed 16 digits!";
+        return false;
+      }
+
+      const cardType = detectCardType(bin);
+      if (cardType === "unknown") {
+        binInput.classList.add('error-input');
+        binInput.placeholder = "Invalid BIN or unsupported card type!";
+        return false;
+      }
+
+      // Valid BIN
+      return true;
+    }
+
+    function getRandomNumber(length) {
+      let result = '';
+      for (let i = 0; i < length; i++) {
+        result += Math.floor(Math.random() * 10);
+      }
+      return result;
+    }
+
+    function getRandomMonth() {
+      return String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+    }
+
+    function getRandomYear() {
+      return String(Math.floor(Math.random() * (2034 - 2024)) + 2024).slice(-2);
+    }
+
+    function formatCardNumber(number, type) {
+      if (type.toLowerCase() === "american express") {
+        return number.replace(/(\d{4})(\d{6})(\d{5})/, '$1 $2 $3');
+      }
+      return number.replace(/(\d{4})/g, '$1 ').trim();
+    }
+
+    function calculateLuhnCheckDigit(partialNumber) {
+      const reversed = partialNumber.split('').reverse().map(Number);
+      let sum = 0;
+      for (let i = 0; i < reversed.length; i++) {
+        let digit = reversed[i];
+        if (i % 2 === 0) {
+          digit *= 2;
+          if (digit > 9) {
+            digit = digit.toString().split('').reduce((a, b) => a + parseInt(b), 0);
+          }
+        }
+        sum += digit;
+      }
+      return (10 - (sum % 10)) % 10;
+    }
+
+    function generateCards() {
+      const rawBin = document.getElementById('bin').value;
+      const bin = rawBin.replace(/\D/g, ''); // keep only digits
+
+      if (!validateBin(bin)) {
+        document.getElementById('bin').value = '';
+        return;
+      }
+
+      const cardType = detectCardType(bin);
+      const userMonth = document.getElementById('month').value;
+      const userYear = document.getElementById('year').value;
+      const cvvInput = document.getElementById('cvv').value;
+      const quantity = parseInt(document.getElementById('quantity').value) || 10;
+
+      const length = getCardLength(cardType);
+      const binLength = bin.length;
+
+      let results = '';
+
+      for (let i = 0; i < quantity; i++) {
+        const remainingDigits = length - binLength - 1;
+        const randomDigits = getRandomNumber(remainingDigits);
+        const partialNumber = bin + randomDigits;
+        const checkDigit = calculateLuhnCheckDigit(partialNumber);
+        const cardNumber = partialNumber + checkDigit;
+
+        const month = userMonth || getRandomMonth();
+        const year = userYear || getRandomYear();
+        const cvv = cvvInput || getRandomNumber(cardType.toLowerCase() === 'american express' ? 4 : 3);
+
+        const formattedNumber = formatCardNumber(cardNumber, cardType);
+        results += `${formattedNumber} | ${month}/${year} | CVV: ${cvv}\n`;
+      }
+
+      document.getElementById('results').value = results;
+    }
+
+    function copyResults() {
+      const results = document.getElementById('results');
+      results.select();
+      results.setSelectionRange(0, 99999);
+      document.execCommand('copy');
+
+      // Visual feedback
+      const copyBtn = document.querySelector('.copy-btn');
+      const originalText = copyBtn.textContent;
+      copyBtn.textContent = '✓ Copied!';
+      copyBtn.style.backgroundColor = '#2E7D32';
+      setTimeout(() => {
+        copyBtn.textContent = originalText;
+        copyBtn.style.backgroundColor = 'var(--success-green)';
+      }, 2000);
+    }
+
+    // Validate BIN as user types
+    document.getElementById('bin').addEventListener('input', function () {
+      const bin = this.value.replace(/\D/g, '');
+      validateBin(bin);
+    });
+  </script>
+
+</body>
+
+</html>
